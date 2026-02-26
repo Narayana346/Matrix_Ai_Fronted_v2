@@ -27,7 +27,7 @@ const Index = () => {
         <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center mb-6 glow-effect">
           <Sparkles className="w-10 h-10 text-primary" />
         </div>
-        <h1 className="text-3xl font-bold gradient-text mb-4">Lovable</h1>
+        <h1 className="text-3xl font-bold gradient-text mb-4">Matrix AI</h1>
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
           <span>Loading...</span>
