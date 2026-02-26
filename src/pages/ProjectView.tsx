@@ -59,12 +59,15 @@ export function ProjectView() {
           api.getProject(projectId)
         ]);
 
-        const formattedMessages: ChatMessage[] = history.map((msg) => ({
+        const formattedMessages: ChatMessage[] = history.map((msg: any) => ({
           id: msg.id.toString(),
           role: msg.role === "USER" ? "user" : "assistant",
           content: msg.content,
           createdAt: msg.createdAt,
-          events: msg.events,
+          events: (msg.events || []).map((event: any) => ({
+            ...event,
+            type: event.type || event.eventType // Handle both backend and frontend naming
+          })),
         }));
         setMessages(formattedMessages);
         setProject(projectData);
@@ -331,7 +334,7 @@ Please analyze this error and fix the code to resolve it.`;
         </div>
 
         <div className="flex items-center gap-1">
-          
+
 
           {/* View Mode Toggle */}
           <div className="flex items-center bg-muted/30 rounded-lg p-0.5 mx-2">
