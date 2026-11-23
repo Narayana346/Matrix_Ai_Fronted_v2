@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { api, isAuthenticated, removeAuthToken, getUserInfo, removeUserInfo } from "@/lib/api";
+import { api, isAuthenticated, removeAuthToken, getUserInfo, removeUserInfo, SELECTED_MODEL_KEY } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { RuntimeErrorAlert, RuntimeError } from "@/components/RuntimeErrorAlert";
 import { generateGradient, cn } from "@/lib/utils";
-import { ProjectResponse } from "@/lib/types";
+import { ProjectResponse, OpenRouterModel } from "@/lib/types";
 import { ShareDialog } from "@/components/ShareDialog";
 
 type ViewMode = "code" | "preview";
@@ -32,6 +32,29 @@ export function ProjectView() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [runtimeError, setRuntimeError] = useState<RuntimeError | null>(null);
   const [project, setProject] = useState<ProjectResponse | null>(null);
+
+  // Model selection (OpenRouter)
+  const [models, setModels] = useState<OpenRouterModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(
+    () => localStorage.getItem(SELECTED_MODEL_KEY) || undefined
+  );
+
+  const handleSelectModel = useCallback((modelId: string) => {
+    setSelectedModel(modelId);
+    localStorage.setItem(SELECTED_MODEL_KEY, modelId);
+  }, []);
+
+  useEffect(() => {
+    api
+      .getAvailableModels()
+      .then(setModels)
+      .catch(() => {
+        // Non-fatal: chat still works with the backend's default model.
+        toast({ title: "Couldn't load model list", description: "Using the default model instead.", variant: "destructive" });
+      })
+      .finally(() => setIsLoadingModels(false));
+  }, [toast]);
 
   // Rename state
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
@@ -177,11 +200,12 @@ export function ProjectView() {
           )
         );
         setIsStreaming(false);
-      }
+      },
+      selectedModel
     );
 
     return cleanup;
-  }, [projectId, toast]);
+  }, [projectId, toast, selectedModel]);
 
   // Listen for runtime errors from the preview iframe
   useEffect(() => {
@@ -429,6 +453,10 @@ Please analyze this error and fix the code to resolve it.`;
                 isStreaming={isStreaming}
                 isLoading={isLoadingHistory}
                 readOnly={project?.role === 'VIEWER'}
+                models={models}
+                selectedModel={selectedModel}
+                onSelectModel={handleSelectModel}
+                isLoadingModels={isLoadingModels}
               />
             </div>
           </ResizablePanel>
@@ -440,7 +468,7 @@ Please analyze this error and fix the code to resolve it.`;
             <div className="h-full">
               <div className="h-full relative">
                 <div className={cn("h-full absolute inset-0", viewMode !== "code" && "hidden")}>
-                  <CodePanel projectId={projectId} updatedFiles={updatedFiles} />
+                  <CodePanel projectId={projectId} updatedFiles={updatedFiles} canEdit={project?.role !== 'VIEWER'} />
                 </div>
                 <div className={cn("h-full absolute inset-0", viewMode !== "preview" && "hidden")}>
                   <PreviewPanel

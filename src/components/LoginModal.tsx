@@ -29,7 +29,7 @@ export function LoginModal() {
     setIsLoading(true);
 
     try {
-      const response = await api.login({email, password });
+      const response = await api.login({ username: email, password });
       setAuthToken(response.token);
       if (response.user) {
         setUserInfo(response.user);

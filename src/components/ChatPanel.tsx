@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { useStreamParser } from "../hooks/use-stream-parser";
 import { ChatEventRenderer } from './ChatEventRenderer';
-import { ChatEvent } from "@/lib/types";
+import { ChatEvent, OpenRouterModel } from "@/lib/types";
+import { ModelSelector } from "./ModelSelector";
 
 export interface ChatMessage {
   id: string;
@@ -23,9 +24,23 @@ interface ChatPanelProps {
   isStreaming: boolean;
   isLoading?: boolean;
   readOnly?: boolean;
+  models?: OpenRouterModel[];
+  selectedModel?: string;
+  onSelectModel?: (modelId: string) => void;
+  isLoadingModels?: boolean;
 }
 
-export function ChatPanel({ messages, onSendMessage, isStreaming, isLoading, readOnly }: ChatPanelProps) {
+export function ChatPanel({
+  messages,
+  onSendMessage,
+  isStreaming,
+  isLoading,
+  readOnly,
+  models = [],
+  selectedModel,
+  onSelectModel,
+  isLoadingModels,
+}: ChatPanelProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -121,9 +136,19 @@ export function ChatPanel({ messages, onSendMessage, isStreaming, isLoading, rea
         </form>
 
         <div className="flex items-center justify-between mt-2 px-1">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>✨ AI-Powered Design System</span>
-          </div>
+          {onSelectModel ? (
+            <ModelSelector
+              models={models}
+              selectedModel={selectedModel}
+              onSelectModel={onSelectModel}
+              isLoading={isLoadingModels}
+              disabled={isStreaming || readOnly}
+            />
+          ) : (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>✨ AI-Powered Design System</span>
+            </div>
+          )}
           {isStreaming && (
             <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
               <Loader2 className="w-3 h-3 animate-spin text-primary" />

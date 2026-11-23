@@ -1,5 +1,5 @@
 export interface LoginCredentials {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -8,6 +8,7 @@ export interface LoginResponse {
   projectId: string;
   user?: {
     id: number;
+    username: string;
     name: string;
   };
 }
@@ -21,6 +22,15 @@ export interface FileNode {
 
 export interface DeployResponse {
   previewUrl: string;
+}
+
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  contextLength: number | null;
+  free: boolean;
+  promptPricePerMillionTokens: number;
+  completionPricePerMillionTokens: number;
 }
 
 export interface ChatHistoryMessage {
@@ -91,7 +101,7 @@ export interface InviteMemberRequest {
 }
 
 export interface SignupRequest {
-  email:String;
+  username: string;
   name: string;
   password: string;
 }

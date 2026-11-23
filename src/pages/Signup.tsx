@@ -30,7 +30,7 @@ export default function Signup() {
         setIsLoading(true);
 
         try {
-            const response = await api.signup({ name, email, password });
+            const response = await api.signup({ name, username: email, password });
             setAuthToken(response.token);
             setUserInfo(response.user);
             toast({

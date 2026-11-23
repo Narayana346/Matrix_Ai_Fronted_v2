@@ -171,6 +171,9 @@ export function ProjectsDashboard() {
                                 <p className="text-sm font-medium leading-none">
                                     {getUserInfo()?.name || "User"}
                                 </p>
+                                <p className="text-xs leading-none text-muted-foreground">
+                                    {getUserInfo()?.username || ""}
+                                </p>
                             </div>
                             <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer">
                                 <LogOut className="w-4 h-4 mr-2" />

@@ -2,11 +2,15 @@ import { useState, useEffect, useCallback } from "react";
 import { FileTree } from "./FileTree";
 import { CodeEditor } from "./CodeEditor";
 import { FileTabs } from "./FileTabs";
+import { Button } from "./ui/button";
+import { Loader2, Save } from "lucide-react";
 import { api, FileNode, OPEN_TABS_KEY, ACTIVE_TAB_KEY } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface CodePanelProps {
   projectId: string;
   updatedFiles: Map<string, string>;
+  canEdit: boolean;
 }
 
 // Helper to find a file by path in the tree
@@ -22,13 +26,16 @@ function findFileInTree(files: FileNode[], targetPath: string): boolean {
 const getTabsKey = (projectId: string) => `${OPEN_TABS_KEY}_${projectId}`;
 const getActiveTabKey = (projectId: string) => `${ACTIVE_TAB_KEY}_${projectId}`;
 
-export function CodePanel({ projectId, updatedFiles }: CodePanelProps) {
+export function CodePanel({ projectId, updatedFiles, canEdit }: CodePanelProps) {
+  const { toast } = useToast();
   const [files, setFiles] = useState<FileNode[]>([]);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [isLoadingTree, setIsLoadingTree] = useState(true);
   const [isLoadingFile, setIsLoadingFile] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load tabs from localStorage
   useEffect(() => {
@@ -98,6 +105,8 @@ export function CodePanel({ projectId, updatedFiles }: CodePanelProps) {
 
   // Load file content when active tab changes
   useEffect(() => {
+    setIsDirty(false);
+
     if (!activeTab) {
       setFileContent("");
       return;
@@ -129,8 +138,30 @@ export function CodePanel({ projectId, updatedFiles }: CodePanelProps) {
   useEffect(() => {
     if (activeTab && updatedFiles.has(activeTab)) {
       setFileContent(updatedFiles.get(activeTab)!);
+      setIsDirty(false);
     }
   }, [activeTab, updatedFiles]);
+
+  const handleCodeChange = useCallback((newContent: string) => {
+    setFileContent(newContent);
+    setIsDirty(true);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!activeTab || !canEdit) return;
+
+    setIsSaving(true);
+    try {
+      await api.saveFileContent(projectId, activeTab, fileContent);
+      setIsDirty(false);
+      toast({ title: "File saved", description: activeTab.split('/').pop() });
+    } catch (error) {
+      console.error("Failed to save file:", error);
+      toast({ title: "Failed to save file", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [activeTab, canEdit, projectId, fileContent, toast]);
 
   const handleSelectFile = useCallback((path: string) => {
     // Add to tabs if not already open
@@ -159,6 +190,21 @@ export function CodePanel({ projectId, updatedFiles }: CodePanelProps) {
     setActiveTab(path);
   }, []);
 
+  // Cmd/Ctrl+S to save the active file
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (canEdit && isDirty) {
+          handleSave();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canEdit, isDirty, handleSave]);
+
   return (
     <div className="flex h-full">
       {/* File Tree */}
@@ -177,19 +223,39 @@ export function CodePanel({ projectId, updatedFiles }: CodePanelProps) {
       {/* Code Editor with Tabs */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* File Tabs */}
-        <FileTabs
-          openTabs={openTabs}
-          activeTab={activeTab}
-          onSelectTab={handleSelectTab}
-          onCloseTab={handleCloseTab}
-        />
-        
+        <div className="flex items-center justify-between border-b border-border/50">
+          <FileTabs
+            openTabs={openTabs}
+            activeTab={activeTab}
+            onSelectTab={handleSelectTab}
+            onCloseTab={handleCloseTab}
+          />
+          {canEdit && activeTab && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 mx-2 shrink-0 text-xs"
+              disabled={!isDirty || isSaving}
+              onClick={handleSave}
+            >
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Save
+            </Button>
+          )}
+        </div>
+
         {/* Editor */}
         <div className="flex-1 overflow-hidden">
           <CodeEditor
             content={fileContent}
             filePath={activeTab}
             isLoading={isLoadingFile}
+            editable={canEdit}
+            onCodeChange={canEdit ? handleCodeChange : undefined}
           />
         </div>
       </div>
