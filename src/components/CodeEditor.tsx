@@ -1,9 +1,30 @@
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
-import { json } from '@codemirror/lang-json';
+import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { css } from '@codemirror/lang-css';
+import { syntaxTree } from '@codemirror/language';
+import { linter, lintGutter, type Diagnostic } from '@codemirror/lint';
+import type { EditorView } from '@codemirror/view';
 import { FileCode, Loader2 } from "lucide-react";
 import {githubDark} from '@uiw/codemirror-theme-github';
+
+// Walks the Lezer syntax tree and flags any error nodes it produced while
+// parsing. Catches syntax mistakes (unmatched brackets, invalid tokens, etc.)
+// for any language whose CodeMirror extension is Lezer-based (JS/TS/JSX/CSS).
+const syntaxErrorLinter = linter((view: EditorView) => {
+  const diagnostics: Diagnostic[] = [];
+  syntaxTree(view.state).cursor().iterate((node) => {
+    if (node.type.isError) {
+      diagnostics.push({
+        from: node.from,
+        to: Math.max(node.to, node.from + 1),
+        severity: 'error',
+        message: 'Syntax error',
+      });
+    }
+  });
+  return diagnostics;
+});
 
 interface CodeEditorProps {
   content: string;
@@ -39,15 +60,15 @@ export function CodeEditor({ content, filePath, isLoading, editable, onCodeChang
       case 'jsx':
       case 'ts':
       case 'tsx':
-        return [javascript({ jsx: true, typescript: true })];
+        return [javascript({ jsx: true, typescript: true }), syntaxErrorLinter];
       case 'json':
-        return [json()];
+        return [json(), linter(jsonParseLinter())];
       case 'css':
       case 'scss':
-        return [css()];
+        return [css(), syntaxErrorLinter];
       case 'html':
       case 'svg':
-        return [javascript({ jsx: true })];
+        return [javascript({ jsx: true }), syntaxErrorLinter];
       default:
         return [];
     }
@@ -60,7 +81,7 @@ export function CodeEditor({ content, filePath, isLoading, editable, onCodeChang
         height="100%"
         theme={githubDark}
         editable={editable ?? false}
-        extensions={getLanguage(filePath)}
+        extensions={[...getLanguage(filePath), lintGutter()]}
         onChange={(value) => onCodeChange?.(value)}
         basicSetup={{
           lineNumbers: true,
