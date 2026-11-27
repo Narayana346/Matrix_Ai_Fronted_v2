@@ -15,6 +15,55 @@ const getAuthHeaders = (): HeadersInit => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// Dispatched whenever a request fails because the session is missing/expired,
+// so the UI (outside of any single component) can react by routing to /login.
+export const AUTH_EXPIRED_EVENT = "auth:expired";
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+let sessionExpiredNotified = false;
+
+const handleSessionExpired = () => {
+  removeAuthToken();
+  removeUserInfo();
+  if (!sessionExpiredNotified) {
+    sessionExpiredNotified = true;
+    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+    // Allow future expirations (e.g. after a fresh login) to notify again.
+    setTimeout(() => { sessionExpiredNotified = false; }, 1000);
+  }
+};
+
+// Wraps fetch so any 401/403 (missing, invalid, or expired token) is handled
+// in one place: clear the stale session and let listeners redirect to /login.
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(url, options);
+  } catch {
+    throw new ApiError("Could not reach the server. Check your connection and try again.", 0);
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    handleSessionExpired();
+    throw new ApiError("Your session has expired. Please log in again.", response.status);
+  }
+
+  return response;
+}
+
+// Lets callers skip showing their own generic error toast when the real
+// cause was a session expiry, since AuthExpiryListener already surfaces that.
+export const isAuthError = (error: unknown): boolean =>
+  error instanceof ApiError && (error.status === 401 || error.status === 403);
+
 // User info storage
 export const setUserInfo = (user: { id: number; username: string; name: string }) => {
   localStorage.setItem("user_info", JSON.stringify(user));
@@ -127,7 +176,7 @@ export const api = {
   },
 
   async getFiles(projectId: string): Promise<FileNode[]> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/files`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/files`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -140,7 +189,7 @@ export const api = {
   },
 
   async getFileContent(projectId: string, path: string): Promise<string> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${BASE_URL}/api/v1/workspace/projects/${projectId}/files/content?path=${path}`,
       {
         headers: { ...getAuthHeaders() },
@@ -157,7 +206,7 @@ export const api = {
   },
 
   async saveFileContent(projectId: string, path: string, content: string): Promise<void> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${BASE_URL}/api/v1/workspace/projects/${projectId}/files/content`,
       {
         method: "PUT",
@@ -172,7 +221,7 @@ export const api = {
   },
 
   async deploy(projectId: string): Promise<DeployResponse> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/deploy`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/deploy`, {
       method: "POST",
       headers: { ...getAuthHeaders() },
     });
@@ -185,7 +234,7 @@ export const api = {
   },
 
   async getProjects(): Promise<ProjectSummaryResponse[]> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -197,7 +246,7 @@ export const api = {
   },
 
   async createProject(name: string): Promise<ProjectSummaryResponse> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ name }),
@@ -211,7 +260,7 @@ export const api = {
   },
 
   async getProject(id: string): Promise<ProjectResponse> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${id}`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${id}`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -223,7 +272,7 @@ export const api = {
   },
 
   async updateProject(id: string, name: string): Promise<ProjectResponse> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${id}`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ name }),
@@ -237,7 +286,7 @@ export const api = {
   },
 
   async deleteProject(id: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${id}`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${id}`, {
       method: "DELETE",
       headers: { ...getAuthHeaders() },
     });
@@ -248,7 +297,7 @@ export const api = {
   },
 
   async downloadProjectZip(id: string): Promise<Blob> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${id}/files/download-zip`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${id}/files/download-zip`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -260,7 +309,7 @@ export const api = {
   },
 
   async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -272,7 +321,7 @@ export const api = {
   },
 
   async inviteMember(projectId: string, username: string, role: ProjectRole): Promise<void> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ username, role }),
@@ -285,7 +334,7 @@ export const api = {
   },
 
   async updateMemberRole(projectId: string, userId: number, role: ProjectRole): Promise<void> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members/${userId}`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ role }),
@@ -297,7 +346,7 @@ export const api = {
   },
 
   async removeMember(projectId: string, userId: number): Promise<void> {
-    const response = await fetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members/${userId}`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/workspace/projects/${projectId}/members/${userId}`, {
       method: "DELETE",
       headers: { ...getAuthHeaders() },
     });
@@ -308,7 +357,7 @@ export const api = {
   },
 
   async getChatHistory(projectId: string): Promise<ChatMessage[]> {
-    const response = await fetch(`${BASE_URL}/api/v1/intelligence/chat/projects/${projectId}`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/intelligence/chat/projects/${projectId}`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -320,7 +369,7 @@ export const api = {
   },
 
   async getAvailableModels(): Promise<OpenRouterModel[]> {
-    const response = await fetch(`${BASE_URL}/api/v1/intelligence/chat/models`, {
+    const response = await apiFetch(`${BASE_URL}/api/v1/intelligence/chat/models`, {
       headers: { ...getAuthHeaders() },
     });
 
@@ -349,6 +398,10 @@ export const api = {
       signal: controller.signal,
     })
       .then(async (response) => {
+        if (response.status === 401 || response.status === 403) {
+          handleSessionExpired();
+          throw new ApiError("Your session has expired. Please log in again.", response.status);
+        }
         if (!response.ok) throw new Error("Chat stream failed");
 
         const reader = response.body?.getReader();

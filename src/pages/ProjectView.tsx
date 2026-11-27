@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { api, isAuthenticated, removeAuthToken, getUserInfo, removeUserInfo, SELECTED_MODEL_KEY } from "@/lib/api";
+import { api, isAuthenticated, removeAuthToken, getUserInfo, removeUserInfo, isAuthError, SELECTED_MODEL_KEY } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -49,9 +49,11 @@ export function ProjectView() {
     api
       .getAvailableModels()
       .then(setModels)
-      .catch(() => {
+      .catch((error) => {
         // Non-fatal: chat still works with the backend's default model.
-        toast({ title: "Couldn't load model list", description: "Using the default model instead.", variant: "destructive" });
+        if (!isAuthError(error)) {
+          toast({ title: "Couldn't load model list", description: "Using the default model instead.", variant: "destructive" });
+        }
       })
       .finally(() => setIsLoadingModels(false));
   }, [toast]);
@@ -96,11 +98,13 @@ export function ProjectView() {
         setProject(projectData);
       } catch (error) {
         console.error("Failed to load project data:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load project data",
-          variant: "destructive"
-        });
+        if (!isAuthError(error)) {
+          toast({
+            title: "Error",
+            description: "Failed to load project data",
+            variant: "destructive"
+          });
+        }
       } finally {
         setIsLoadingHistory(false);
       }
@@ -187,11 +191,13 @@ export function ProjectView() {
       },
       (error) => {
         // Handle error
-        toast({
-          title: "Chat error",
-          description: error.message,
-          variant: "destructive",
-        });
+        if (!isAuthError(error)) {
+          toast({
+            title: "Chat error",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === aiMessageId
@@ -258,7 +264,9 @@ Please analyze this error and fix the code to resolve it.`;
       toast({ title: "Success", description: "Project deleted successfully" });
     } catch (error) {
       console.error("Failed to delete:", error);
-      toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+      if (!isAuthError(error)) {
+        toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+      }
     }
   };
 
@@ -277,7 +285,9 @@ Please analyze this error and fix the code to resolve it.`;
       toast({ title: "Success", description: "Download started" });
     } catch (error) {
       console.error("Failed to download:", error);
-      toast({ title: "Error", description: "Failed to download project", variant: "destructive" });
+      if (!isAuthError(error)) {
+        toast({ title: "Error", description: "Failed to download project", variant: "destructive" });
+      }
     }
   };
 
@@ -298,7 +308,9 @@ Please analyze this error and fix the code to resolve it.`;
       toast({ title: "Success", description: "Project renamed successfully" });
     } catch (error) {
       console.error("Failed to rename:", error);
-      toast({ title: "Error", description: "Failed to rename project", variant: "destructive" });
+      if (!isAuthError(error)) {
+        toast({ title: "Error", description: "Failed to rename project", variant: "destructive" });
+      }
     }
   };
 

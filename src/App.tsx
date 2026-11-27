@@ -9,6 +9,7 @@ import { ProjectView } from "./pages/ProjectView";
 import { ProjectsDashboard } from "./pages/ProjectsDashboard";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
+import { AuthExpiryListener } from "./components/AuthExpiryListener";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthExpiryListener />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginModal />} />

@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, LogOut, Search, Folder, Loader2, MoreVertical, Trash, Download, Edit } from "lucide-react";
+import { Plus, LogOut, Search, Loader2, MoreVertical, Trash, Download, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { api, removeAuthToken, removeUserInfo, getUserInfo } from "@/lib/api";
+import { api, removeAuthToken, removeUserInfo, getUserInfo, isAuthError } from "@/lib/api";
 import { ProjectSummaryResponse } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { generateGradient, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Logo } from "@/components/Logo";
 
 export function ProjectsDashboard() {
     const navigate = useNavigate();
@@ -37,11 +38,13 @@ export function ProjectsDashboard() {
             setProjects(data);
         } catch (error) {
             console.error("Failed to fetch projects:", error);
-            toast({
-                title: "Error",
-                description: "Failed to load projects. Please try again.",
-                variant: "destructive",
-            });
+            if (!isAuthError(error)) {
+                toast({
+                    title: "Error",
+                    description: "Failed to load projects. Please try again.",
+                    variant: "destructive",
+                });
+            }
         } finally {
             setLoading(false);
         }
@@ -64,11 +67,13 @@ export function ProjectsDashboard() {
             // navigate(`/projects/${newProject.id}`);
         } catch (error) {
             console.error("Failed to create project:", error);
-            toast({
-                title: "Error",
-                description: "Failed to create project",
-                variant: "destructive",
-            });
+            if (!isAuthError(error)) {
+                toast({
+                    title: "Error",
+                    description: "Failed to create project",
+                    variant: "destructive",
+                });
+            }
         } finally {
             setIsCreating(false);
         }
@@ -84,7 +89,9 @@ export function ProjectsDashboard() {
             toast({ title: "Success", description: "Project deleted successfully" });
         } catch (error) {
             console.error("Failed to delete:", error);
-            toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+            if (!isAuthError(error)) {
+                toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+            }
         }
     };
 
@@ -103,7 +110,9 @@ export function ProjectsDashboard() {
             toast({ title: "Success", description: "Download started" });
         } catch (error) {
             console.error("Failed to download:", error);
-            toast({ title: "Error", description: "Failed to download project", variant: "destructive" });
+            if (!isAuthError(error)) {
+                toast({ title: "Error", description: "Failed to download project", variant: "destructive" });
+            }
         }
     };
 
@@ -125,7 +134,9 @@ export function ProjectsDashboard() {
             toast({ title: "Success", description: "Project renamed successfully" });
         } catch (error) {
             console.error("Failed to rename:", error);
-            toast({ title: "Error", description: "Failed to rename project", variant: "destructive" });
+            if (!isAuthError(error)) {
+                toast({ title: "Error", description: "Failed to rename project", variant: "destructive" });
+            }
         }
     };
 
@@ -144,12 +155,7 @@ export function ProjectsDashboard() {
             {/* Header */}
             <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="container flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-8">
-                    <div className="flex items-center gap-2 font-bold text-lg">
-                        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <Folder className="w-5 h-5 text-primary" />
-                        </div>
-                        Project Companion
-                    </div>
+                    <Logo size="sm" withWordmark />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
